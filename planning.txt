@@ -1,0 +1,13 @@
+first setup a mongodb atlas done 
+then create a next js project cli 
+design schema 
+then create planning 
+signup , login 
+me api 
+item add to that speicific user 
+item can see a all the user whose can login then 
+add a item full description 
+specific user can swip up otherwise they can setup to as a reedem code 
+
+admin panel 
+in admin panel side manage user , orders , manage listing 
