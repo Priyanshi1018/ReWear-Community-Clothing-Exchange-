@@ -11,3 +11,8 @@ specific user can swip up otherwise they can setup to as a reedem code
 
 admin panel 
 in admin panel side manage user , orders , manage listing 
+
+
+backend testing 
+frontend create  
+create a postman link for each access 

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next"
-import { AuthService } from "../services/authService"
+import { AuthService } from "@/services/auth.service"
 
 export interface AuthenticatedRequest extends NextApiRequest {
   user?: {
