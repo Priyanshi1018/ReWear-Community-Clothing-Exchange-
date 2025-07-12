@@ -67,12 +67,22 @@ class ApiClient {
     return this.request(`/items/${id}`)
   }
 
-  async createItem(itemData: any) {
-    return this.request("/items", {
-      method: "POST",
-      body: JSON.stringify(itemData),
-    })
-  }
+async createItem(itemData: FormData | any) {
+  const isFormData = itemData instanceof FormData
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null // or from AuthContext
+
+  const response = await fetch("/api/items", {
+    method: "POST",
+    body: itemData,
+    headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+
+  return response
+}
+
 
   async getMyItems() {
     return this.request("/items/my-item")

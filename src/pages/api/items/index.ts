@@ -1,21 +1,33 @@
-import type { NextApiResponse } from "next"
+// pages/api/items/index.ts
+import type { NextApiRequest, NextApiResponse } from "next"
 import nc from "next-connect"
+import multer from "multer"
 import { authMiddleware, type AuthenticatedRequest } from "../../../middleware/auth"
-import { ItemService } from "@/services/item.service"
 import { dbConnectMiddleware } from "@/middleware/dbConnectMidlleware"
+import { ItemService } from "@/services/item.service"
 
+export const config = {
+  api: {
+    bodyParser: false, // Disable built-in body parser
+  },
+}
 
+// Multer setup to store images in memory (or configure storage)
+const storage = multer.memoryStorage()
+const upload = multer({ storage })
+
+// Extend type for next-connect handler to include user
 const handler = nc<AuthenticatedRequest, NextApiResponse>({
   onError: (err, req, res) => {
-    console.error(err.stack)
-    res.status(500).json({ success: false, error: "Something went wrong!" })
+    console.error(err)
+    res.status(500).json({ success: false, error: "Internal Server Error" })
   },
   onNoMatch: (req, res) => {
-    res.status(404).json({ success: false, error: "Method not found" })
+    res.status(404).json({ success: false, error: "Not Found" })
   },
 })
 
-// GET /api/items - Get all items with filters
+// GET - Fetch all items
 handler.get(async (req, res) => {
   await dbConnectMiddleware(req, res, () => {})
 
@@ -31,20 +43,24 @@ handler.get(async (req, res) => {
   res.status(200).json(result)
 })
 
-// POST /api/items - Create new item
+// POST - Upload item with multiple images
 handler.use(authMiddleware)
+handler.use(upload.array("images")) // handle multiple files under fieldname `images`
 
-handler.post(async (req, res) => {
+handler.post(async (req: AuthenticatedRequest & { files: any[] }, res: NextApiResponse) => {
   await dbConnectMiddleware(req, res, () => {})
 
-  const { title, description, category, type, size, condition, tags, images } = req.body
+  const files = req.files as Express.Multer.File[]
+  const body = req.body
 
-  if (!title || !description || !category || !type || !size || !condition || !images?.length) {
-    return res.status(400).json({
-      success: false,
-      error: "All required fields must be provided",
-    })
+  // Ensure required fields
+  const { title, description, category, type, size, condition } = body
+  if (!title || !description || !category || !type || !size || !condition || !files?.length) {
+    return res.status(400).json({ success: false, error: "All fields and at least one image are required." })
   }
+
+  // Simulated upload: convert buffer to base64 placeholder (In real app: upload to S3, Cloudinary, etc.)
+  const imageUrls = files.map(file => `data:${file.mimetype};base64,${file.buffer.toString("base64")}`)
 
   const itemData = {
     title,
@@ -53,8 +69,8 @@ handler.post(async (req, res) => {
     type,
     size,
     condition,
-    tags: tags || [],
-    images,
+    tags: body.tags ? JSON.parse(body.tags) : [],
+    images: imageUrls,
   }
 
   const result = await ItemService.createItem(itemData, req.user!.userId)

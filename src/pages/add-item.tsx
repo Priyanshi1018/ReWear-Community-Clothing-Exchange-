@@ -43,6 +43,7 @@ export default function AddItemPage() {
 
   const [newTag, setNewTag] = useState("")
   const [loading, setLoading] = useState(false)
+  const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
   if (!user) {
@@ -71,17 +72,16 @@ export default function AddItemPage() {
     }
   }
 
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
-      // In a real app, you'd upload to a cloud service like Cloudinary or AWS S3
-      // For now, we'll use placeholder URLs
-      const newImages = Array.from(files).map(
-        (file, index) => `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(file.name)}`,
-      )
+      const newFiles = Array.from(files).slice(0, APP_CONFIG.VALIDATION.MAX_IMAGES - selectedImages.length)
+      setSelectedImages((prev) => [...prev, ...newFiles])
+      const newPreviewUrls = newFiles.map(file => URL.createObjectURL(file))
       setFormData((prev) => ({
         ...prev,
-        images: [...prev.images, ...newImages].slice(0, APP_CONFIG.VALIDATION.MAX_IMAGES),
+        images: [...prev.images, ...newPreviewUrls],
       }))
     }
   }
@@ -116,20 +116,36 @@ export default function AddItemPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!validateForm()) return
-
     setLoading(true)
 
     try {
-      await api.createItem(formData)
+      const form = new FormData()
+      form.append("title", formData.title)
+      form.append("description", formData.description)
+      form.append("category", formData.category)
+      form.append("type", formData.type)
+      form.append("size", formData.size)
+      form.append("condition", formData.condition)
+      form.append("tags", JSON.stringify(formData.tags))
+
+      selectedImages.forEach((file) => {
+        form.append("images", file)
+      })
+
+      const res = await api.createItem(form)
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to upload")
+
       router.push("/dashboard")
     } catch (error: any) {
-      setErrors({ general: error.message || "Failed to create item" })
+      setErrors({ general: error.message })
     } finally {
       setLoading(false)
     }
   }
+
 
   return (
     <>
@@ -175,20 +191,20 @@ export default function AddItemPage() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {formData.images.map((image, index) => (
                     <div key={index} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                      <img
-                        src={image || "/placeholder.svg"}
-                        alt={`Item ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={image} alt={`Item ${index + 1}`} className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => removeImage(index)}
+                        onClick={() => {
+                          setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+                          removeImage(index)
+                        }}
                         className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
                   ))}
+
 
                   {formData.images.length < APP_CONFIG.VALIDATION.MAX_IMAGES && (
                     <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-400">
